@@ -83,6 +83,52 @@ class GoogleSheet {
     return { auth, googleSheets };
   }
 
+  async clearSheet({ spreadsheetId, range }) {
+    const { auth, googleSheets } = await this.#getAccessTheTable();
+    const request = {
+      spreadsheetId,
+      range,
+      resource: {
+      },
+      auth,
+    };
+  
+    try {
+      const response = (await sheets.spreadsheets.values.clear(request)).data;
+      // TODO: Change code below to process the `response` object:
+    } catch (err) {
+      console.error(err.message);
+    }
+  }
+
+  async batchUpdateValues({ spreadsheetId, range, valueInputOption, values }) {
+    const { auth, googleSheets } = await this.#getAccessTheTable();
+
+    const data = [
+      {
+        range,
+        values,
+      },
+    ];
+
+    const resource = {
+      data,
+      valueInputOption,
+    };
+    try {
+      const result = await googleSheets.spreadsheets.values.batchUpdate({
+        spreadsheetId,
+        resource,
+      });
+      console.log('%d cells updated.', result.data.totalUpdatedCells);
+      return result;
+    } catch (err) {
+      console.log(`ERROR: ${err.message}`);
+      // TODO (developer) - Handle exception
+      // throw err;
+    }
+  }
+
   async getDataFromSheet(tableName) {
     try {
       const { auth, googleSheets } = await this.#getAccessTheTable();

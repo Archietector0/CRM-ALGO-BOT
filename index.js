@@ -17,7 +17,6 @@ import {
 } from './src/telegram/constants.js';
 import { Task } from './src/telegram/Task.js';
 import { googleSheet } from './src/google/googleSheet.js';
-import { Queue } from './src/telegram/queue.js';
 import { LIST_TABLE_NAMES } from './src/google/constants.js';
 import { writeLogToDB } from './src/logger/logger.js';
 import { QueryTypes, STRING } from "sequelize";
@@ -237,10 +236,6 @@ async function finishTask({ cbQuery, session, bot }) {
     await writeLogToDB({ msg: cbQuery, userSession: session })
   } catch (e) {
     console.log(`ERROR: ${e.message}`);
-  }
-
-  for (let i = 0; i < 1; i++) {
-    queue.add({ name: `Task${i}`, interval: 4 * 1000, session: session.getLastTask() });
   }
 
   const phrase = `Привет ${session.getFirstName()}, 😕\n\nТут ты можешь творить дела со своими задачами.\nВыбери интересующую тебя функцию:`;
@@ -553,9 +548,35 @@ bot.setWebHook(`${process.env.URL}/bot${process.env.TOKEN}`);
 const app = new Koa();
 
 const router = new Router();
-router.post(`/bot${process.env.TOKEN}`, (ctx) => {
+router.post(`/bot${process.env.TOKEN}`, async (ctx) => {
   const { body } = ctx.request;
   console.log(body);
+  if (body.task === 'getAllDataFromDB') {
+    let data = await db.sequelize.query(`
+    SELECT
+      *
+    FROM
+      "crm-algo"
+    `, { type: QueryTypes.SELECT })
+
+    const values = [
+      ['uuid', 'header', 'project_name', 'assignee', 'assignee_to', 'priority', 'description', 'created_at', 'status'],
+      ...data.map(item => [
+        item.uuid,
+        item.header,
+        item.project_name,
+        item.assignee,
+        item.assignee_to,
+        item.priority,
+        item.description,
+        item.created_at,
+        item.status
+      ])
+    ]
+
+    await googleSheet.clearSheet({ spreadsheetId: process.env.SPREED_SHEET_ID, range: 'table_task!A1:I1000' })
+    await googleSheet.batchUpdateValues({ spreadsheetId: process.env.SPREED_SHEET_ID, range: 'table_task!A1:I1000', valueInputOption: 'RAW', values })
+  }
   bot.processUpdate(body);
   ctx.status = 200;
 });
@@ -573,32 +594,6 @@ const sessions = new Map();
 
 //------------------------------------------
 
-// TODO: Поставить обработку ошибки на слшиком много запросов к гугл апи от одного юзера
-const job = async (task, next) => {
-  console.log('TASK:', task);
-  try {
-    await googleSheet.writeDataToTableTask({
-      tableName: `${LIST_TABLE_NAMES.TABLE_TASK}`,
-      task: task.session,
-    });
-  } catch {
-    console.log('JOB GOOGLE');
-  }
-  setTimeout(next, task.interval, null, task);
-};
-
-const queue = Queue.channels(1)
-  .process(job)
-  .done((err, res) => {
-    const { count } = queue;
-    const waiting = queue.waiting.length;
-    console.log(`Done: ${res.name}, count:${count}, waiting: ${waiting}`);
-  })
-  .success((res) => console.log(`Success: ${res.name}`))
-  .failure((err) => console.log(`Failure: ${err}`))
-  .drain(() => console.log('Queue drain'));
-
-//------------------------------------------
 
 bot.on('message', async (msg) => {
   addCurrentSession({ sessions, sessionInfo: msg });
