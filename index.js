@@ -19,6 +19,7 @@ import { Task } from './src/telegram/Task.js';
 import { googleSheet } from './src/google/googleSheet.js';
 import { Queue } from './src/telegram/queue.js';
 import { LIST_TABLE_NAMES } from './src/google/constants.js';
+import { writeLogToDB } from './src/logger/logger.js';
 
 function addCurrentSession({ sessions, sessionInfo }) {
   let flag = 0;
@@ -226,6 +227,14 @@ async function finishTask({ cbQuery, session, bot }) {
     });
     session.setState('deleter');
     return;
+  }
+
+  console.log();
+
+  try {
+    await writeLogToDB({ msg: cbQuery, userSession: session })
+  } catch (e) {
+    console.log(`ERROR: ${e.message}`);
   }
 
   for (let i = 0; i < 1; i++) {
@@ -547,6 +556,7 @@ const queue = Queue.channels(1)
 bot.on('message', async (msg) => {
   addCurrentSession({ sessions, sessionInfo: msg });
   const session = getCurrentSession({ sessions, sessionInfo: msg });
+  session.action = 'message'
 
   await processingMessageOperationLogic({ msg, session, bot });
 });
@@ -554,6 +564,7 @@ bot.on('message', async (msg) => {
 bot.on('callback_query', async (cbQuery) => {
   addCurrentSession({ sessions, sessionInfo: cbQuery });
   const session = getCurrentSession({ sessions, sessionInfo: cbQuery });
+  session.action = 'callback_query'
   session.setState(cbQuery.data);
 
   await processingCallbackQueryOperationLogic({ cbQuery, session, bot });

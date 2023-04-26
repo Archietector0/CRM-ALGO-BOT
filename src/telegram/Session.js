@@ -7,6 +7,7 @@ export class Session {
 
   // Public vars
   state = 'unknown';
+  action = 'unknown'
   mainMsgId = 0;
   idToDelete = []
 
