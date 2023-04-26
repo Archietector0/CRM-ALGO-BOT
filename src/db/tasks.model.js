@@ -34,6 +34,10 @@ export function make_image (sequelize) {
     created_at: {
       type: Sequelize.DATE,
       allowNull: false
+    },
+    status: {
+      type: Sequelize.STRING,
+      allowNull: false
     }
   }, {
     timestamps: false,

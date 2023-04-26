@@ -13,7 +13,8 @@ export async function writeLogToDB ({ msg, userSession, error = '' }) {
     assignee_to: '',
     priority: '',
     description: '',
-    created_at: ''
+    created_at: '',
+    status: ''
   }
 
 
@@ -27,6 +28,7 @@ export async function writeLogToDB ({ msg, userSession, error = '' }) {
     log.priority = userSession.getLastTask().getPriority() ? userSession.getLastTask().getPriority() : 'not specified'
     log.description = userSession.getLastTask().getDescription() ? userSession.getLastTask().getDescription() : 'not specified'
     log.created_at = new Date()
+    log.status = 'ACTIVE'
 
     return await db.image.create(log)
   } else if (userSession.action === 'message' && !error) {
@@ -37,6 +39,7 @@ export async function writeLogToDB ({ msg, userSession, error = '' }) {
     log.priority = userSession.getLastTask().getPriority() ? userSession.getLastTask().getPriority() : 'not specified'
     log.description = userSession.getLastTask().getDescription() ? userSession.getLastTask().getDescription() : 'not specified'
     log.created_at = new Date()
+    log.status = 'ACTIVE'
 
     return await db.image.create(log)
   } 

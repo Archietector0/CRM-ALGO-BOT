@@ -20,6 +20,8 @@ import { googleSheet } from './src/google/googleSheet.js';
 import { Queue } from './src/telegram/queue.js';
 import { LIST_TABLE_NAMES } from './src/google/constants.js';
 import { writeLogToDB } from './src/logger/logger.js';
+import { QueryTypes, STRING } from "sequelize";
+import { db } from './src/db/index.js';
 
 function addCurrentSession({ sessions, sessionInfo }) {
   let flag = 0;
@@ -229,7 +231,7 @@ async function finishTask({ cbQuery, session, bot }) {
     return;
   }
 
-  console.log();
+  // console.log();
 
   try {
     await writeLogToDB({ msg: cbQuery, userSession: session })
@@ -255,19 +257,41 @@ async function finishTask({ cbQuery, session, bot }) {
 async function showTasks({ cbQuery, session, bot }) {
   session.setMainMsgId(cbQuery.message.message_id);
   await telegram.deleteMsg({ msg: cbQuery, bot });
-  const dataFromTable = await googleSheet.getDataFromSheet(
-    LIST_TABLE_NAMES.TABLE_TASK
-  );
 
-  for (let i = 0; i < dataFromTable.length; i++) {
-    if (
-      String(session.getSessionNumber()) === String(dataFromTable[i].assignee)
-    ) {
-      const phrase = `Задача #pl\n\nПроект:\n\t\t\t${dataFromTable[i].project_name}\nЗаголовок:\n\t\t\t${dataFromTable[i].name}\nОписание:\n\t\t\t${dataFromTable[i].description}\nПриоритет:\n\t\t\t${dataFromTable[i].priority}\nИсполнитель:\n\t\t\t${dataFromTable[i].assignee_to}\nКто назначил:\n\t\t\t${dataFromTable[i].assignee}`;
-      await telegram.sendMessage({ msg: cbQuery, phrase, bot });
+
+  try {
+    let currentTasks = await db.sequelize.query(`
+    SELECT
+      *
+    FROM
+      "crm-algo"
+    WHERE
+      status <> 'DELETED'
+      and assignee_to = '${cbQuery.message.chat.id}'
+    `,  { type: QueryTypes.SELECT })
+
+    console.log("CURRENT_TASKS: ", currentTasks);
+
+    for (let i = 0; i < currentTasks.length; i++) {
+      const phrase = `Задача #pl\n\nПроект:\n\t\t\t${currentTasks[i].project_name}\nЗаголовок:\n\t\t\t${currentTasks[i].header}\nОписание:\n\t\t\t${currentTasks[i].description}\nПриоритет:\n\t\t\t${currentTasks[i].priority}\nИсполнитель:\n\t\t\t${currentTasks[i].assignee_to}\nКто назначил:\n\t\t\t${currentTasks[i].assignee}`;
+      await bot.sendMessage(cbQuery.message.chat.id, phrase, {
+        reply_markup: {
+          inline_keyboard: [
+            [{
+              text: 'Удалить',
+              callback_data: `delete_task*${currentTasks[i].uuid}`
+            }]
+          ]
+        }
+      })
       session.idToDelete.push(++cbQuery.message.message_id);
     }
+
+    console.log('currentTasks: ', currentTasks);
+  } catch (e) {
+    console.log(`ERROR BAB: ${e.message}`);
   }
+
   const phrase = `Сказать 1, что тут можно ченьдь придумать`;
   await telegram.sendMessage({
     msg: cbQuery,
@@ -279,6 +303,7 @@ async function showTasks({ cbQuery, session, bot }) {
 }
 
 async function deleteVisibleTasks({ cbQuery, session, bot }) {
+
   session.setMainMsgId(cbQuery.message.message_id);
   for (let i = 0; i < session.idToDelete.length; i++) {
     try {
@@ -490,6 +515,28 @@ async function processingCallbackQueryOperationLogic({ cbQuery, session, bot }) 
 
           session.setMainMsgId(cbQuery.message.message_id);
           await fillTaskFields({ cbQuery, session, bot });
+          break;
+        }
+        case 'delete_task': {
+          session.setMainMsgId(cbQuery.message.message_id);
+          await telegram.deleteMsg({ msg: cbQuery, bot })
+
+          await db.sequelize.query(`
+          UPDATE
+            "crm-algo"
+          SET
+            status = 'DELETED'
+          WHERE
+            uuid IN (
+              SELECT
+                uuid
+              FROM
+                "crm-algo"
+              WHERE
+                uuid = '${data[1]}'
+            )
+          `, { type: QueryTypes.UPDATE })
+
           break;
         }
       }
