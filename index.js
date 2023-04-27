@@ -259,7 +259,7 @@ async function showTasks({ cbQuery, session, bot }) {
     SELECT
       *
     FROM
-      "crm-algo"
+      "${process.env.DB_TABLE_NAME}"
     WHERE
       status <> 'DELETED'
       and assignee_to = '${cbQuery.message.chat.id}'
@@ -545,7 +545,7 @@ async function processingCallbackQueryOperationLogic({ cbQuery, session, bot }) 
           try {
             await db.sequelize.query(`
             UPDATE
-              "crm-algo"
+              "${process.env.DB_TABLE_NAME}"
             SET
               status = '${data[1]}'
             WHERE
@@ -553,7 +553,7 @@ async function processingCallbackQueryOperationLogic({ cbQuery, session, bot }) 
                 SELECT
                   uuid
                 FROM
-                  "crm-algo"
+                  "${process.env.DB_TABLE_NAME}"
                 WHERE
                   uuid = '${data[2]}'
               )
@@ -567,7 +567,7 @@ async function processingCallbackQueryOperationLogic({ cbQuery, session, bot }) 
             SELECT
               *
             FROM
-              "crm-algo"
+              "${process.env.DB_TABLE_NAME}"
             WHERE
               uuid = '${data[2]}'
             `, { type: QueryTypes.SELECT })
@@ -599,7 +599,7 @@ async function processingCallbackQueryOperationLogic({ cbQuery, session, bot }) 
             SELECT
               *
             FROM
-              "crm-algo"
+              "${process.env.DB_TABLE_NAME}"
             WHERE
               uuid = '${data[1]}'
             `, { type: QueryTypes.SELECT })
@@ -628,7 +628,7 @@ async function processingCallbackQueryOperationLogic({ cbQuery, session, bot }) 
           try {
             await db.sequelize.query(`
             UPDATE
-              "crm-algo"
+              "${process.env.DB_TABLE_NAME}"
             SET
               status = 'DELETED'
             WHERE
@@ -636,7 +636,7 @@ async function processingCallbackQueryOperationLogic({ cbQuery, session, bot }) 
                 SELECT
                   uuid
                 FROM
-                  "crm-algo"
+                  "${process.env.DB_TABLE_NAME}"
                 WHERE
                   uuid = '${data[2]}'
               )
@@ -670,7 +670,7 @@ router.post(`/bot${process.env.TOKEN}`, async (ctx) => {
       SELECT
         *
       FROM
-        "crm-algo"
+        "${process.env.DB_TABLE_NAME}"
       `, { type: QueryTypes.SELECT })
   
       const values = [
