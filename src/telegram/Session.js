@@ -16,6 +16,7 @@ export class Session {
     this.#sessionNumber = sessionNumber;
     this.#firstName = firstName;
     this.#userName = userName;
+    // this.mainMsgId = mainMsgId
   }
 
   // Add method

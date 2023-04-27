@@ -27,15 +27,18 @@ function addCurrentSession({ sessions, sessionInfo }) {
   let sessionNumber;
   let firstName;
   let userName;
+  // let mainMsgId;
 
+  
   for (let key in sessionInfo) if (key === 'message') flag = 1;
-  sessionNumber = !flag ? sessionInfo.chat.id : sessionInfo.message.chat.id;
+  sessionNumber = !flag ? sessionInfo?.chat?.id : sessionInfo?.message?.chat.id;
   firstName = !flag
     ? sessionInfo.chat.first_name
     : sessionInfo.message.chat.first_name;
   userName = !flag
     ? sessionInfo.chat.username
     : sessionInfo.message.chat.username;
+  // mainMsgId = !flag ? sessionInfo.message_id : sessionInfo.message.message_id;
 
   if (!sessions.has(sessionNumber)) {
     sessions.set(
@@ -44,6 +47,7 @@ function addCurrentSession({ sessions, sessionInfo }) {
         sessionNumber,
         firstName,
         userName,
+        // mainMsgId: mainMsgId + 1
       })
     );
   }
@@ -621,7 +625,10 @@ async function processingCallbackQueryOperationLogic({ cbQuery, session, bot }) 
                 }, {
                   text: 'Удалить',
                   callback_data: `task_action_delete*delete*${currentTasks[0].uuid}`
-                }] 
+                }], [{
+                  text: 'Скрыть',
+                  callback_data: 'hide_task'
+                }]
               ]
             }
             await telegram.editMessage({ msg: cbQuery, phrase, session, keyboard, bot })
@@ -720,8 +727,25 @@ const sessions = new Map();
 
 //------------------------------------------
 
+bot.onText(/\/restart/, async (msg) => {
+  addCurrentSession({ sessions, sessionInfo: msg }) 
+  let session = getCurrentSession({ sessions, sessionInfo: msg })
+
+  try {
+    await bot.deleteMessage(msg.chat.id, msg.message_id - 1)
+  } catch (e) {
+    console.log(e.message);
+  }
+  await telegram.deleteMsg({ msg, bot })
+
+
+  const phrase = `Привет ${session.getFirstName()}, 😕\n\nТут ты можешь творить дела со своими задачами.\nВыбери интересующую тебя функцию:`;
+  await telegram.sendMessage({ msg, phrase, keyboard: GREETING_KEYBOARD, bot })
+})
+
 
 bot.on('message', async (msg) => {
+  if (msg.text === '/restart') return
   addCurrentSession({ sessions, sessionInfo: msg });
   const session = getCurrentSession({ sessions, sessionInfo: msg });
   session.action = 'message'
