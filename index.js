@@ -277,7 +277,10 @@ async function showTasks({ cbQuery, session, bot }) {
           }, {
             text: 'Удалить',
             callback_data: `task_action_delete*delete*${currentTasks[i].uuid}`
-          }] 
+          }], [{
+            text: 'Скрыть',
+            callback_data: 'hide_task'
+          }]
         ]
       }
       await telegram.sendMessage({ msg: cbQuery, phrase, keyboard, bot })
@@ -495,6 +498,12 @@ async function processingCallbackQueryOperationLogic({ cbQuery, session, bot }) 
       session.setMainMsgId(cbQuery.message.message_id);
       await fillTaskFields({ cbQuery, session, bot });
       break;
+    }
+
+    case 'hide_task': {
+      session.setMainMsgId(cbQuery.message.message_id);
+      await telegram.deleteMsg({ msg: cbQuery, bot })
+      break
     }
 
     default: {
