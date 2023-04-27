@@ -555,6 +555,8 @@ async function processingCallbackQueryOperationLogic({ cbQuery, session, bot }) 
           break
         }
         case 'choose_task_status': {
+          session.setMainMsgId(cbQuery.message.message_id);
+
           try {
             await db.sequelize.query(`
             UPDATE
@@ -594,7 +596,10 @@ async function processingCallbackQueryOperationLogic({ cbQuery, session, bot }) 
                 }, {
                   text: 'Удалить',
                   callback_data: `task_action_delete*delete*${currentTasks[0].uuid}`
-                }] 
+                }], [{
+                  text: 'Скрыть',
+                  callback_data: 'hide_task'
+                }]
               ]
             }
             await telegram.editMessage({ msg: cbQuery, phrase, session, keyboard, bot })
