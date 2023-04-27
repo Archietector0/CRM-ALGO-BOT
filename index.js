@@ -31,11 +31,11 @@ function addCurrentSession({ sessions, sessionInfo }) {
   for (let key in sessionInfo) if (key === 'message') flag = 1;
   sessionNumber = !flag ? sessionInfo.chat.id : sessionInfo.message.chat.id;
   firstName = !flag
-    ? sessionInfo.from.first_name
-    : sessionInfo.message.from.first_name;
+    ? sessionInfo.chat.first_name
+    : sessionInfo.message.chat.first_name;
   userName = !flag
-    ? sessionInfo.from.username
-    : sessionInfo.message.from.username;
+    ? sessionInfo.chat.username
+    : sessionInfo.message.chat.username;
 
   if (!sessions.has(sessionNumber)) {
     sessions.set(
@@ -268,17 +268,19 @@ async function showTasks({ cbQuery, session, bot }) {
     console.log("CURRENT_TASKS: ", currentTasks);
 
     for (let i = 0; i < currentTasks.length; i++) {
-      const phrase = `Задача #pl\n\nПроект:\n\t\t\t${currentTasks[i].project_name}\nЗаголовок:\n\t\t\t${currentTasks[i].header}\nОписание:\n\t\t\t${currentTasks[i].description}\nПриоритет:\n\t\t\t${currentTasks[i].priority}\nИсполнитель:\n\t\t\t${currentTasks[i].assignee_to}\nКто назначил:\n\t\t\t${currentTasks[i].assignee}`;
-      await bot.sendMessage(cbQuery.message.chat.id, phrase, {
-        reply_markup: {
-          inline_keyboard: [
-            [{
-              text: 'Удалить',
-              callback_data: `delete_task*${currentTasks[i].uuid}`
-            }]
-          ]
-        }
-      })
+      const phrase = `${(currentTasks[i].created_at).toISOString()}\n--------------------------------\nПроект:\n\t\t\t${currentTasks[i].project_name}\nЗаголовок:\n\t\t\t${currentTasks[i].header}\nОписание:\n\t\t\t${currentTasks[i].description}\nПриоритет:\n\t\t\t${currentTasks[i].priority}\nИсполнитель:\n\t\t\t${currentTasks[i].assignee_to}\nКто назначил:\n\t\t\t${currentTasks[i].assignee}\n--------------------------------\nСтатус задачи: ${currentTasks[i].status}`;
+      const keyboard = {
+        inline_keyboard: [
+          [{
+            text: 'Сменить статус',
+            callback_data: `task_action_change_status*${currentTasks[i].uuid}`
+          }, {
+            text: 'Удалить',
+            callback_data: `task_action_delete*delete*${currentTasks[i].uuid}`
+          }] 
+        ]
+      }
+      await telegram.sendMessage({ msg: cbQuery, phrase, keyboard, bot })
       session.idToDelete.push(++cbQuery.message.message_id);
     }
 
@@ -287,7 +289,7 @@ async function showTasks({ cbQuery, session, bot }) {
     console.log(`ERROR BAB: ${e.message}`);
   }
 
-  const phrase = `Сказать 1, что тут можно ченьдь придумать`;
+  const phrase = `Выше представлены все ваши задачи`;
   await telegram.sendMessage({
     msg: cbQuery,
     phrase,
@@ -511,26 +513,137 @@ async function processingCallbackQueryOperationLogic({ cbQuery, session, bot }) 
           session.setMainMsgId(cbQuery.message.message_id);
           await fillTaskFields({ cbQuery, session, bot });
           break;
+        } case 'task_action_change_status': {
+
+          session.setMainMsgId(cbQuery.message.message_id);
+          const phrase = 'Выберите статус задачи:'
+
+          const CHOOSE_TASK_STATUS_KEYBOARD = {
+            inline_keyboard: [
+              [{
+                text: 'В процессе',
+                callback_data: `choose_task_status*IN_PROGRESS*${data[1]}`
+              }, {
+                text: 'Закрыта',
+                callback_data: `choose_task_status*CLOSED*${data[1]}`
+              }], [{
+                text: 'Открыта',
+                callback_data: `choose_task_status*OPENED*${data[1]}`
+              }, {
+                text: 'Отменена',
+                callback_data: `choose_task_status*CANCELED*${data[1]}`
+              }], [{
+                text: 'Назад',
+                callback_data: `go_main_task_menu*${data[1]}`
+              }]
+            ]
+          }
+          await telegram.editMessage({ msg: cbQuery, phrase, session, keyboard: CHOOSE_TASK_STATUS_KEYBOARD, bot })
+          break
         }
-        case 'delete_task': {
+        case 'choose_task_status': {
+          try {
+            await db.sequelize.query(`
+            UPDATE
+              "crm-algo"
+            SET
+              status = '${data[1]}'
+            WHERE
+              uuid IN (
+                SELECT
+                  uuid
+                FROM
+                  "crm-algo"
+                WHERE
+                  uuid = '${data[2]}'
+              )
+            `, { type: QueryTypes.UPDATE })
+          } catch (e) {
+            console.log(e.message);
+          }
+
+          try {
+            let currentTasks = await db.sequelize.query(`
+            SELECT
+              *
+            FROM
+              "crm-algo"
+            WHERE
+              uuid = '${data[2]}'
+            `, { type: QueryTypes.SELECT })
+  
+            const phrase = `${(currentTasks[0].created_at).toISOString()}\n--------------------------------\nПроект:\n\t\t\t${currentTasks[0].project_name}\nЗаголовок:\n\t\t\t${currentTasks[0].header}\nОписание:\n\t\t\t${currentTasks[0].description}\nПриоритет:\n\t\t\t${currentTasks[0].priority}\nИсполнитель:\n\t\t\t${currentTasks[0].assignee_to}\nКто назначил:\n\t\t\t${currentTasks[0].assignee}\n--------------------------------\nСтатус задачи: ${currentTasks[0].status}`;
+            const keyboard = {
+              inline_keyboard: [
+                [{
+                  text: 'Сменить статус',
+                  callback_data: `task_action_change_status*${currentTasks[0].uuid}`
+                }, {
+                  text: 'Удалить',
+                  callback_data: `task_action_delete*delete*${currentTasks[0].uuid}`
+                }] 
+              ]
+            }
+            await telegram.editMessage({ msg: cbQuery, phrase, session, keyboard, bot })
+          } catch (e) {
+            console.log(e.message);
+          }
+          
+          break
+        }
+        case 'go_main_task_menu': {
+          session.setMainMsgId(cbQuery.message.message_id);
+
+          try {
+            let currentTasks = await db.sequelize.query(`
+            SELECT
+              *
+            FROM
+              "crm-algo"
+            WHERE
+              uuid = '${data[1]}'
+            `, { type: QueryTypes.SELECT })
+            const phrase = `${(currentTasks[0].created_at).toISOString()}\n--------------------------------\nПроект:\n\t\t\t${currentTasks[0].project_name}\nЗаголовок:\n\t\t\t${currentTasks[0].header}\nОписание:\n\t\t\t${currentTasks[0].description}\nПриоритет:\n\t\t\t${currentTasks[0].priority}\nИсполнитель:\n\t\t\t${currentTasks[0].assignee_to}\nКто назначил:\n\t\t\t${currentTasks[0].assignee}\n--------------------------------\nСтатус задачи: ${currentTasks[0].status}`;
+            const keyboard = {
+              inline_keyboard: [
+                [{
+                  text: 'Сменить статус',
+                  callback_data: `task_action_change_status*${currentTasks[0].uuid}`
+                }, {
+                  text: 'Удалить',
+                  callback_data: `task_action_delete*delete*${currentTasks[0].uuid}`
+                }] 
+              ]
+            }
+            await telegram.editMessage({ msg: cbQuery, phrase, session, keyboard, bot })
+          } catch (e) {
+            console.log(e.message);
+          }
+          break
+        }
+        case 'task_action_delete': {
           session.setMainMsgId(cbQuery.message.message_id);
           await telegram.deleteMsg({ msg: cbQuery, bot })
 
-          await db.sequelize.query(`
-          UPDATE
-            "crm-algo"
-          SET
-            status = 'DELETED'
-          WHERE
-            uuid IN (
-              SELECT
-                uuid
-              FROM
-                "crm-algo"
-              WHERE
-                uuid = '${data[1]}'
-            )
-          `, { type: QueryTypes.UPDATE })
+          try {
+            await db.sequelize.query(`
+            UPDATE
+              "crm-algo"
+            SET
+              status = 'DELETED'
+            WHERE
+              uuid IN (
+                SELECT
+                  uuid
+                FROM
+                  "crm-algo"
+                WHERE
+                  uuid = '${data[2]}'
+              )
+            `, { type: QueryTypes.UPDATE })
+          } catch (e) {
+            console.log(e.message);
+          }
 
           break;
         }
@@ -552,30 +665,34 @@ router.post(`/bot${process.env.TOKEN}`, async (ctx) => {
   const { body } = ctx.request;
   console.log(body);
   if (body.task === 'getAllDataFromDB') {
-    let data = await db.sequelize.query(`
-    SELECT
-      *
-    FROM
-      "crm-algo"
-    `, { type: QueryTypes.SELECT })
-
-    const values = [
-      ['uuid', 'header', 'project_name', 'assignee', 'assignee_to', 'priority', 'description', 'created_at', 'status'],
-      ...data.map(item => [
-        item.uuid,
-        item.header,
-        item.project_name,
-        item.assignee,
-        item.assignee_to,
-        item.priority,
-        item.description,
-        item.created_at,
-        item.status
-      ])
-    ]
-
-    await googleSheet.clearSheet({ spreadsheetId: process.env.SPREED_SHEET_ID, range: 'table_task!A1:I1000' })
-    await googleSheet.batchUpdateValues({ spreadsheetId: process.env.SPREED_SHEET_ID, range: 'table_task!A1:I1000', valueInputOption: 'RAW', values })
+    try {
+      let data = await db.sequelize.query(`
+      SELECT
+        *
+      FROM
+        "crm-algo"
+      `, { type: QueryTypes.SELECT })
+  
+      const values = [
+        ['uuid', 'header', 'project_name', 'assignee', 'assignee_to', 'priority', 'description', 'created_at', 'status'],
+        ...data.map(item => [
+          item.uuid,
+          item.header,
+          item.project_name,
+          item.assignee,
+          item.assignee_to,
+          item.priority,
+          item.description,
+          item.created_at,
+          item.status
+        ])
+      ]
+  
+      await googleSheet.clearSheet({ spreadsheetId: process.env.SPREED_SHEET_ID, range: 'table_task!A1:I1000' })
+      await googleSheet.batchUpdateValues({ spreadsheetId: process.env.SPREED_SHEET_ID, range: 'table_task!A1:I1000', valueInputOption: 'RAW', values })
+    } catch (e) {
+      console.log(e.message);
+    }
   }
   bot.processUpdate(body);
   ctx.status = 200;
