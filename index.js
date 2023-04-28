@@ -234,8 +234,6 @@ async function finishTask({ cbQuery, session, bot }) {
     return;
   }
 
-  // console.log();
-
   try {
     await writeLogToDB({ msg: cbQuery, userSession: session })
   } catch (e) {
@@ -251,6 +249,56 @@ async function finishTask({ cbQuery, session, bot }) {
     bot,
   });
   session.setState('deleter');
+}
+
+async function showOtherTasks({ cbQuery, session, bot }) {
+  await telegram.deleteMsg({ msg: cbQuery, bot });
+
+  try {
+    let currentTasks = await db.sequelize.query(`
+    SELECT
+      *
+    FROM
+      "${process.env.DB_TABLE_NAME}"
+    WHERE
+      status <> 'DELETED'
+      and assignee = '${cbQuery.message.chat.id}'
+    `,  { type: QueryTypes.SELECT })
+  
+    console.log("CURRENT_TASKS: ", currentTasks);
+  
+    for (let i = 0; i < currentTasks.length; i++) {
+      const phrase = `${(currentTasks[i].created_at).toISOString()}\n--------------------------------\nПроект:\n\t\t\t${currentTasks[i].project_name}\nЗаголовок:\n\t\t\t${currentTasks[i].header}\nОписание:\n\t\t\t${currentTasks[i].description}\nПриоритет:\n\t\t\t${currentTasks[i].priority}\nИсполнитель:\n\t\t\t${currentTasks[i].assignee_to}\nКто назначил:\n\t\t\t${currentTasks[i].assignee}\n--------------------------------\nСтатус задачи: ${currentTasks[i].status}`;
+      const keyboard = {
+        inline_keyboard: [
+          [{
+            text: 'Сменить статус',
+            callback_data: `task_action_change_status*${currentTasks[i].uuid}`
+          }, {
+            text: 'Удалить',
+            callback_data: `task_action_delete*delete*${currentTasks[i].uuid}`
+          }], [{
+            text: 'Скрыть',
+            callback_data: 'hide_task'
+          }]
+        ]
+      }
+      await telegram.sendMessage({ msg: cbQuery, phrase, keyboard, bot })
+      session.idToDelete.push(++cbQuery.message.message_id);
+    }
+  } catch (e) {
+    console.log(e.message);
+  }
+
+  const phrase = `Задачи выше вы навесили на кого-то`;
+  await telegram.sendMessage({
+    msg: cbQuery,
+    phrase,
+    keyboard: DELETE_CURRENT_TASK_KEYBOARD,
+    bot,
+  });
+  session.setState('deleter');
+
 }
 
 async function showTasks({ cbQuery, session, bot }) {
@@ -507,6 +555,12 @@ async function processingCallbackQueryOperationLogic({ cbQuery, session, bot }) 
     case 'hide_task': {
       session.setMainMsgId(cbQuery.message.message_id);
       await telegram.deleteMsg({ msg: cbQuery, bot })
+      break
+    }
+
+    case 'show_other_tasks': {
+      session.setMainMsgId(cbQuery.message.message_id);
+      await showOtherTasks({ cbQuery, session, bot })
       break
     }
 

@@ -92,22 +92,19 @@ export const DELETE_CURRENT_TASK_KEYBOARD = {
 
 export const GREETING_KEYBOARD = {
   inline_keyboard: [
-    [
-      {
-        text: 'Мои задачи',
-        callback_data: 'show_tasks'
-      },
-      {
-        text: 'Создать задачу',
-        callback_data: 'create_task',
-      },
-    ],
-    [
-      {
-        text: 'Мой id',
-        callback_data: 'get_telegram_id',
-      },
-    ],
+    [{
+      text: 'Мои задачи',
+      callback_data: 'show_tasks'
+    }, {
+      text: 'Создать задачу',
+      callback_data: 'create_task',
+    }], [{
+      text: 'Чужие задачи',
+      callback_data: 'show_other_tasks'
+    }, {
+      text: 'Мой id',
+      callback_data: 'get_telegram_id',
+    }],
   ],
 };
 
