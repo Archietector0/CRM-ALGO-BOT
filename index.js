@@ -835,18 +835,17 @@ bot.onText(/\/restart/, async (msg) => {
   addCurrentSession({ sessions, sessionInfo: msg }) 
   let session = getCurrentSession({ sessions, sessionInfo: msg })
 
-  try {
-    await bot.deleteMessage(msg.chat.id, msg.message_id - 1)
-  } catch (e) {
-    console.log(e.message);
-  }
-  await telegram.deleteMsg({ msg, bot })
+  // try {
+  //   await bot.deleteMessage(msg.chat.id, msg.message_id - 1)
+  // } catch (e) {
+  //   console.log(e.message);
+  // }
+  // await telegram.deleteMsg({ msg, bot })
 
 
   const phrase = `Привет ${session.getFirstName()}, 😕\n\nТут ты можешь творить дела со своими задачами.\nВыбери интересующую тебя функцию:`;
   await telegram.sendMessage({ msg, phrase, keyboard: GREETING_KEYBOARD, bot })
 })
-
 
 bot.on('message', async (msg) => {
   if (msg.text === '/restart') return
