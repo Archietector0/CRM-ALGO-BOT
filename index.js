@@ -47,7 +47,7 @@ function addCurrentSession({ sessions, sessionInfo }) {
         sessionNumber,
         firstName,
         userName,
-        // mainMsgId: mainMsgId + 1
+        tasks: [new Task(sessionNumber)]
       })
     );
   }
@@ -389,6 +389,7 @@ async function processingMessageOperationLogic({ msg, session, bot }) {
     }
 
     case 'input_header': {
+      console.log(session);
       session.getLastTask().setHeader(msg.text);
       await telegram.deleteMsg({ msg, bot });
       const phrase = `Заполни поля для задачи.\n\nПроект:\n\t\t\t${session
@@ -568,10 +569,16 @@ async function processingCallbackQueryOperationLogic({ cbQuery, session, bot }) 
     default: {
       let data = cbQuery.data.split('*');
       switch (data[0]) {
+
         case 'assign_performer': {
-          session.setMainMsgId(cbQuery.message.message_id);
-          session.getLastTask().setAssignPerformer(data[1]);
-          await fillTaskFields({ cbQuery, session, bot });
+          try {
+            session.setMainMsgId(cbQuery.message.message_id);
+            session.getLastTask().setAssignPerformer(data[1]);
+            await fillTaskFields({ cbQuery, session, bot });
+          } catch (e) {
+            await telegram.deleteMsg({ msg: cbQuery, bot })
+            return
+          }
           break;
         }
         case 'choose_project': {

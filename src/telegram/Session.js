@@ -12,10 +12,11 @@ export class Session {
   idToDelete = []
 
   // Constuctor
-  constructor({ sessionNumber, firstName, userName }) {
+  constructor({ sessionNumber, firstName, userName, tasks }) {
     this.#sessionNumber = sessionNumber;
     this.#firstName = firstName;
     this.#userName = userName;
+    this.#tasks = tasks
     // this.mainMsgId = mainMsgId
   }
 
