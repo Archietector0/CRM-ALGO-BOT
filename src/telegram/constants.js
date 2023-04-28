@@ -99,7 +99,7 @@ export const GREETING_KEYBOARD = {
       text: 'Создать задачу',
       callback_data: 'create_task',
     }], [{
-      text: 'Чужие задачи',
+      text: 'Назначенные задачи',
       callback_data: 'show_other_tasks'
     }, {
       text: 'Мой id',

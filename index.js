@@ -265,8 +265,6 @@ async function showOtherTasks({ cbQuery, session, bot }) {
       and assignee = '${cbQuery.message.chat.id}'
     `,  { type: QueryTypes.SELECT })
   
-    console.log("CURRENT_TASKS: ", currentTasks);
-  
     for (let i = 0; i < currentTasks.length; i++) {
       const phrase = `${(currentTasks[i].created_at).toISOString()}\n--------------------------------\nПроект:\n\t\t\t${currentTasks[i].project_name}\nЗаголовок:\n\t\t\t${currentTasks[i].header}\nОписание:\n\t\t\t${currentTasks[i].description}\nПриоритет:\n\t\t\t${currentTasks[i].priority}\nИсполнитель:\n\t\t\t${currentTasks[i].assignee_to}\nКто назначил:\n\t\t\t${currentTasks[i].assignee}\n--------------------------------\nСтатус задачи: ${currentTasks[i].status}`;
       const keyboard = {
@@ -278,6 +276,9 @@ async function showOtherTasks({ cbQuery, session, bot }) {
             text: 'Удалить',
             callback_data: `task_action_delete*delete*${currentTasks[i].uuid}`
           }], [{
+            text: 'Уведомить',
+            callback_data: `notice_user*${currentTasks[i].uuid}`
+          }, {
             text: 'Скрыть',
             callback_data: 'hide_task'
           }]
@@ -608,6 +609,43 @@ async function processingCallbackQueryOperationLogic({ cbQuery, session, bot }) 
           await telegram.editMessage({ msg: cbQuery, phrase, session, keyboard: CHOOSE_TASK_STATUS_KEYBOARD, bot })
           break
         }
+
+
+
+
+        case 'notice_user': {
+          session.setMainMsgId(cbQuery.message.message_id);
+          try {
+            let currentTasks = await db.sequelize.query(`
+            SELECT
+              *
+            FROM
+              "${process.env.DB_TABLE_NAME}"
+            WHERE
+              uuid = '${data[1]}'
+            `,  { type: QueryTypes.SELECT })
+
+            await bot.sendMessage(Number(currentTasks[0].assignee_to), "Тебе пришла новая задача, посомтри, вдруг там что-то важное)", {
+              reply_markup: {
+                inline_keyboard: [
+                  [{
+                    text: 'Скрыть',
+                    callback_data: 'hide_task'
+                  }],
+                ],
+              }
+            })
+    
+          } catch (e) {
+            console.log(e.message);
+          }
+    
+          break
+        }
+
+
+
+
         case 'choose_task_status': {
           session.setMainMsgId(cbQuery.message.message_id);
 
